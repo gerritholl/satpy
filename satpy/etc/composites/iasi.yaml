@@ -1,0 +1,11 @@
+sensor_name: visir/iasi
+
+composites:
+
+  cape:
+    compositor: !!python/name:satpy.composites.atmosphere.CAPE
+    prerequisites:
+    - T
+    - W
+    - pressure_levels
+    standard_name: atmosphere_convective_available_potential_energy
