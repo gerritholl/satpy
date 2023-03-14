@@ -26,14 +26,30 @@ from satpy.composites import CompositeBase
 def _ensure_metpy():
     """Make sure that metpy is there."""
     if metpy is None:
-        raise ImportError("Please install metpy to derive physical quantities from atmospheric profiles.")
+        raise ImportError("Please install metpy to derive quantities from atmospheric profiles.")
 
 
 class CAPE(CompositeBase):
-    """Calculate CAPE from profiles."""
+    """Calculate CAPE from profiles.
+
+    Needs profiles of temperature, specific humidity, and air pressure.
+    """
 
     def __call__(self, projectables, optional_datasets=None, **attrs):
         """Perform the CAPE calculation."""
         _ensure_metpy()
-        (temperature, air_pressure, water_vapour) = projectables
-        raise NotImplementedError()
+        # cut off the stratosphere, which is irrelevant for CAPE/CIN and leads
+        # to problems in calculations involving water vapor mixing ratios
+        projectables = [da.sel(vertical_levels=slice(63, None)) for da in projectables]
+        (temperature, specific_humidity, air_pressure) = projectables
+
+        # product contains the specific humidity (source:
+        # PUG EUM/USC/DOC/22/1281633, § 4.1
+        dewp = metpy.calc.dewpoint_from_specific_humidity(
+                air_pressure, temperature,
+                metpy.calc.mixing_ratio_from_specific_humidity(specific_humidity))
+
+        p = air_pressure.sel(x=50, y=400)
+        t = temperature.sel(x=50, y=400)
+        d = dewp.sel(x=50, y=400)
+        metpy.calc.parcel_profile(p[::-1], t[-1], d[-1])
